@@ -1,0 +1,31 @@
+# === secrets ===
+.env
+.env.*
+config.py
+secrets.py
+token.txt
+
+# === virtual environment ===
+venv/
+env/
+.venv/
+
+# === python ===
+__pycache__/
+*.py[cod]
+
+# === data ===
+data/
+raw_data/
+*.csv
+*.json
+*.xlsx
+
+# === jupyter / ide ===
+.ipynb_checkpoints/
+.vscode/
+.idea/
+
+# === os ===
+.DS_Store
+Thumbs.db
