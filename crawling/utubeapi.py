@@ -138,4 +138,4 @@ if __name__ == "__main__":
         print(f"{i}. {comment['댓글'][:50]}... (좋아요: {comment['좋아요']})\n")
 
     # CSV로 저장
-    crawler.save_to_csv(comments, save_dir="data/utube")
+     # crawler.save_to_csv(comments, save_dir="data/utube")
