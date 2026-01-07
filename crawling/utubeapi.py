@@ -4,6 +4,8 @@ from googleapiclient.errors import HttpError
 import pandas as pd
 from datetime import datetime
 from dotenv import load_dotenv
+import html
+import re
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
@@ -35,6 +37,23 @@ class YouTubeCommentCrawler:
         else:
             return url
 
+    def clean_html(self, text):
+        """
+        HTML 태그 및 특수문자 제거
+        
+        Args:
+            text: 원본 텍스트
+        Returns:
+            cleaned_text: 정리된 텍스트
+        """
+        # HTML 태그 제거 (<a>, <br> 등)
+        text = re.sub(r'<[^>]+>', '', text)
+        
+        # HTML 엔티티 디코딩 (&quot; -> ", &amp; -> & 등)
+        text = html.unescape(text)
+        
+        return text.strip()
+
     def get_comments(self, video_id, max_results=5000):
         """
         특정 비디오의 댓글 가져오기 (대댓글 제외)
@@ -61,8 +80,13 @@ class YouTubeCommentCrawler:
                 for item in response['items']:
                     # 최상위 댓글만 수집
                     comment = item['snippet']['topLevelComment']['snippet']
+                    
+                    # HTML 태그 제거
+                    raw_text = comment['textDisplay']
+                    clean_text = self.clean_html(raw_text)
+                    
                     comments.append({
-                        '댓글': comment['textDisplay'],
+                        '댓글': clean_text,
                         '좋아요': comment['likeCount']
                     })
 
@@ -138,4 +162,4 @@ if __name__ == "__main__":
         print(f"{i}. {comment['댓글'][:50]}... (좋아요: {comment['좋아요']})\n")
 
     # CSV로 저장
-     # crawler.save_to_csv(comments, save_dir="data/utube")
+    crawler.save_to_csv(comments, save_dir="data/utube")
