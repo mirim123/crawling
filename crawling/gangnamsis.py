@@ -10,7 +10,7 @@ import re
 import os
 
 # ================== 설정 ==================
-URL = "https://www.gangnamunni.com/events?q=%EC%A7%80%EB%B0%A9%EC%84%B1%ED%98%95"
+URL = "https://www.gangnamunni.com/events?q=%EB%B3%B4%ED%86%A1%EC%8A%A4"
 DEBUG = True
 SCROLL_PAUSE_TIME = 2  # 스크롤 후 대기 시간
 # ==========================================
@@ -88,6 +88,21 @@ def extract_price(text):
     
     return ""
 
+def extract_rating(text):
+    """텍스트에서 평점 추출 (예: 9.8, 10)"""
+    # 평점 패턴: 숫자.숫자 또는 숫자만
+    match = re.search(r'(\d+\.\d+|\d+)', text)
+    if match:
+        rating = match.group(1)
+        # 10점 만점 기준 (0~10 사이)
+        try:
+            rating_float = float(rating)
+            if 0 <= rating_float <= 10:
+                return rating
+        except:
+            pass
+    return ""
+
 def find_items_with_selectors(driver, selectors):
     """여러 셀렉터로 항목 찾기"""
     for selector in selectors:
@@ -127,6 +142,7 @@ def extract_data(driver):
         try:
             title = ""
             price = ""
+            rating = ""
             
             # 시술명 찾기 - h2[role="doc-subtitle"]
             try:
@@ -152,6 +168,35 @@ def extract_data(driver):
             except:
                 pass
             
+            # 평점 찾기 - span 태그에서
+            try:
+                span_elements = item.find_elements(By.TAG_NAME, 'span')
+                for span in span_elements:
+                    span_text = span.text.strip()
+                    # 평점으로 보이는 패턴
+                    pattern = r'^\d+\.\d+$|^10$|^\d$'
+                    if re.match(pattern, span_text):
+                        rating = extract_rating(span_text)
+                        if rating:
+                            break
+            except:
+                pass
+            
+            # 평점을 못 찾았으면 전체 텍스트에서 찾기
+            if not rating:
+                full_text = item.text
+                # ⭐ 다음에 나오는 숫자 찾기
+                lines = full_text.split('\n')
+                for i, line in enumerate(lines):
+                    if '⭐' in line or '★' in line:
+                        # 같은 줄 또는 다음 줄에서 평점 찾기
+                        if i < len(lines):
+                            rating = extract_rating(lines[i])
+                            if not rating and i + 1 < len(lines):
+                                rating = extract_rating(lines[i + 1])
+                            if rating:
+                                break
+            
             # 가격을 못 찾았으면 전체 텍스트에서 찾기
             if not price:
                 full_text = item.text
@@ -170,8 +215,8 @@ def extract_data(driver):
                         break
             
             if title and price:
-                data_list.append([title, price])
-                print(f"{idx}. {title[:40]}... → {price}원")
+                data_list.append([title, price, rating if rating else ""])
+                print(f"{idx}. {title[:30]}... → {price}원 (평점: {rating if rating else 'N/A'})")
         
         except Exception as e:
             if DEBUG:
@@ -180,16 +225,26 @@ def extract_data(driver):
     
     return data_list
 
-def save_to_csv(data_list, filename='result.csv'):
+def save_to_csv(data_list, save_dir='data/gangnamsis'):
     """CSV 파일로 저장"""
     try:
-        with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
+        # 폴더 생성 (없으면)
+        os.makedirs(save_dir, exist_ok=True)
+        
+        # 타임스탬프 파일명 생성
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'gangnamsis_{timestamp}.csv'
+        filepath = os.path.join(save_dir, filename)
+        
+        # CSV 저장
+        with open(filepath, 'w', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
-            writer.writerow(['시술종류', '가격'])
+            writer.writerow(['시술종류', '가격', '평점'])
             writer.writerows(data_list)
         
         print(f"\n✅ 완료! 총 {len(data_list)}개 데이터를 '{filename}'에 저장했습니다.")
-        print(f"📂 파일 위치: {os.path.abspath(filename)}")
+        print(f"📂 파일 위치: {os.path.abspath(filepath)}")
     except Exception as e:
         print(f"❌ CSV 저장 실패: {e}")
 
